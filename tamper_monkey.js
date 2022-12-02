@@ -3,9 +3,8 @@
 // @namespace    http://tampermonkey.net/
 // @version      0.1
 // @description  try to take over the world!
-// @author       You
+// @author       Sheepzh
 // @match        https://www.zhihu.com/
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=google.com
 // @grant        none
 // ==/UserScript==
 
@@ -13,32 +12,59 @@
     'use strict';
     // The min threshold to vote down
     var THRESHOLD = 3;
+    var ZHIHU_CONTAINER = 'ContentItem-actions';
 
     // Process the container of vote buttons
     function processZhihuContainer(container) {
-        var upVoteText = container.getElementsByClassName('VoteButton--up')?.[0]?.innerText?.replaceAll('\n', '')
-        if(!upVoteText){
+        var voteUpBtn = container.getElementsByClassName('VoteButton--up')?.[0]
+        if(!voteUpBtn || voteUpBtn?.classList?.contains['is-active']){
             return;
         }
-        var upVoteCountTxt = /^.*?(\d+)$/.exec(upVoteText)?.[1]
-        if(!upVoteCountTxt){
+        var voteUpTxt = voteUpBtn?.innerText?.replaceAll('\n', '')
+        if(!voteUpTxt){
             return;
         }
-        var upVoteCountVal = parseInt(upVoteCountTxt)
-        if(!upVoteCountVal || upVoteCountVal < THRESHOLD){
-            return;
+        if (!voteUpTxt.endsWith('万')){
+            var voteUpCountTxt = /^.*?(\d+)$/.exec(voteUpTxt)?.[1]
+            if(!voteUpCountTxt){
+                return;
+            }
+            var voteUpCountVal = parseInt(voteUpCountTxt)
+            if(!voteUpCountVal || voteUpCountVal < THRESHOLD){
+                return;
+            }
         }
+
         // need vote down
         var voteDownButton = container.getElementsByClassName('VoteButton--down')?.[0]
+        if(!voteDownButton || voteDownButton.classList?.contains('is-active')){
+           return;
+        }
         // Click
         console.log('Try to click', voteDownButton)
         voteDownButton && voteDownButton?.click?.()
     }
 
+    // Handle new nodes
+    function observeZhihuMutation(){
+        new MutationObserver(events => {
+            events.forEach(event => {
+                var addedNodes = event.addedNodes
+                if (!addedNodes) {
+                    return;
+                }
+                addedNodes.forEach(node => {
+                    var containers = document.getElementsByClassName(ZHIHU_CONTAINER);
+                    Array.from(containers).forEach(processZhihuContainer);
+                })
+            })
+        }).observe(document, { attributes: false, childList: true, subtree: true })
+    }
+
     function processZhihu(){
-        console.log(123)
-        var allContainers = document.getElementsByClassName('ContentItem-actions');
+        var allContainers = document.getElementsByClassName(ZHIHU_CONTAINER);
         Array.from(allContainers).forEach(processZhihuContainer)
+        observeZhihuMutation()
     }
 
     processZhihu();
